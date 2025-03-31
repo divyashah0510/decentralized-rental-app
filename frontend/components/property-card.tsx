@@ -34,7 +34,7 @@ export default function PropertyCard({
     <Card className="overflow-hidden transition-all web3-card border">
       <div className="aspect-video relative overflow-hidden">
         <Image
-          src={image || "/placeholder.svg?height=225&width=400"}
+          src={image || "/images/property_1.jpg"}
           alt={title}
           fill
           className="object-cover transition-transform hover:scale-105"

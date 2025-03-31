@@ -1,11 +1,183 @@
-"use client"
+// "use client"
 
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, SlidersHorizontal } from "lucide-react"
-import PropertyCard from "@/components/property-card"
+// import { useState } from "react"
+// import { Input } from "@/components/ui/input"
+// import { Button } from "@/components/ui/button"
+// import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// import { Search, SlidersHorizontal } from "lucide-react"
+// import PropertyCard from "@/components/property-card"
+
+// // Mock data for properties
+// const mockProperties = [
+//   {
+//     id: "1",
+//     title: "Modern Apartment in Downtown",
+//     location: "New York, NY",
+//     price: 0.5,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 2,
+//     bathrooms: 2,
+//     area: 85,
+//     isAvailable: true,
+//   },
+//   {
+//     id: "2",
+//     title: "Cozy Studio near Central Park",
+//     location: "New York, NY",
+//     price: 0.3,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 1,
+//     bathrooms: 1,
+//     area: 45,
+//     isAvailable: true,
+//   },
+//   {
+//     id: "3",
+//     title: "Luxury Penthouse with City View",
+//     location: "Los Angeles, CA",
+//     price: 1.2,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 3,
+//     bathrooms: 3,
+//     area: 150,
+//     isAvailable: false,
+//   },
+//   {
+//     id: "4",
+//     title: "Charming Cottage with Garden",
+//     location: "San Francisco, CA",
+//     price: 0.7,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 2,
+//     bathrooms: 1,
+//     area: 90,
+//     isAvailable: true,
+//   },
+//   {
+//     id: "5",
+//     title: "Spacious Family Home",
+//     location: "Chicago, IL",
+//     price: 0.8,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 4,
+//     bathrooms: 2,
+//     area: 180,
+//     isAvailable: true,
+//   },
+//   {
+//     id: "6",
+//     title: "Beachfront Condo",
+//     location: "Miami, FL",
+//     price: 0.9,
+//     image: "/images/property_1.jpg",
+//     bedrooms: 2,
+//     bathrooms: 2,
+//     area: 95,
+//     isAvailable: true,
+//   },
+// ]
+
+// export default function Home() {
+//   const [searchTerm, setSearchTerm] = useState("")
+//   const [activeTab, setActiveTab] = useState("all")
+
+//   const filteredProperties = mockProperties.filter((property) => {
+//     const matchesSearch =
+//       property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+//       property.location.toLowerCase().includes(searchTerm.toLowerCase())
+
+//     if (activeTab === "all") return matchesSearch
+//     if (activeTab === "available") return matchesSearch && property.isAvailable
+//     if (activeTab === "rented") return matchesSearch && !property.isAvailable
+
+//     return matchesSearch
+//   })
+
+//   return (
+//     <div className="container py-8 md:py-12">
+//       {/* Hero Section */}
+//       <section className="mb-12 text-center">
+//         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 gradient-text">Find Your Perfect Rental</h1>
+//         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+//           Discover and rent properties with the security and transparency of blockchain technology
+//         </p>
+
+//         <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
+//           <div className="relative flex-1">
+//             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+//             <Input
+//               placeholder="Search by location or property name"
+//               className="pl-9 border"
+//               value={searchTerm}
+//               onChange={(e) => setSearchTerm(e.target.value)}
+//             />
+//           </div>
+//           <Button variant="outline" className="sm:w-auto hover:border-accent hover:text-white">
+//             <SlidersHorizontal className="h-4 w-4 mr-2" />
+//             Filters
+//           </Button>
+//         </div>
+//       </section>
+
+//       {/* Property Listings */}
+//       <section>
+//         <div className="flex justify-between items-center mb-6">
+//           <h2 className="text-2xl font-bold text-secondary">Property Listings</h2>
+//           <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+//             <TabsList>
+//               <TabsTrigger value="all">All</TabsTrigger>
+//               <TabsTrigger value="available">Available</TabsTrigger>
+//               <TabsTrigger value="rented">Rented</TabsTrigger>
+//             </TabsList>
+//           </Tabs>
+//         </div>
+
+//         {filteredProperties.length > 0 ? (
+//           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+//             {filteredProperties.map((property) => (
+//               <PropertyCard key={property.id} {...property} />
+//             ))}
+//           </div>
+//         ) : (
+//           <div className="text-center py-12">
+//             <h3 className="text-lg font-medium">No properties found</h3>
+//             <p className="text-muted-foreground">Try adjusting your search or filters</p>
+//           </div>
+//         )}
+//       </section>
+//     </div>
+//   )
+// }
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Search,
+  SlidersHorizontal,
+  Shield,
+  FileCodeIcon as FileContract,
+  Database,
+  Wallet,
+  Lock,
+  ChevronRight,
+  Star,
+  ArrowRight,
+} from "lucide-react";
+import PropertyCard from "@/components/property-card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Mock data for properties
 const mockProperties = [
@@ -14,7 +186,7 @@ const mockProperties = [
     title: "Modern Apartment in Downtown",
     location: "New York, NY",
     price: 0.5,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 2,
     bathrooms: 2,
     area: 85,
@@ -25,7 +197,7 @@ const mockProperties = [
     title: "Cozy Studio near Central Park",
     location: "New York, NY",
     price: 0.3,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 1,
     bathrooms: 1,
     area: 45,
@@ -36,7 +208,7 @@ const mockProperties = [
     title: "Luxury Penthouse with City View",
     location: "Los Angeles, CA",
     price: 1.2,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 3,
     bathrooms: 3,
     area: 150,
@@ -47,7 +219,7 @@ const mockProperties = [
     title: "Charming Cottage with Garden",
     location: "San Francisco, CA",
     price: 0.7,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 2,
     bathrooms: 1,
     area: 90,
@@ -58,7 +230,7 @@ const mockProperties = [
     title: "Spacious Family Home",
     location: "Chicago, IL",
     price: 0.8,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 4,
     bathrooms: 2,
     area: 180,
@@ -69,82 +241,660 @@ const mockProperties = [
     title: "Beachfront Condo",
     location: "Miami, FL",
     price: 0.9,
-    image: "/placeholder.svg?height=225&width=400",
+    image: "/images/property_1.jpg",
     bedrooms: 2,
     bathrooms: 2,
     area: 95,
     isAvailable: true,
   },
-]
+];
+
+// Mock testimonials data
+const testimonials = [
+  {
+    id: 1,
+    name: "Sarah Johnson",
+    role: "Property Owner",
+    content:
+      "RentChain has revolutionized how I manage my rental properties. The smart contract system ensures I get paid on time, every time.",
+    avatar: "/placeholder.svg?height=80&width=80",
+    rating: 5,
+  },
+  {
+    id: 2,
+    name: "Michael Chen",
+    role: "Tenant",
+    content:
+      "I love the transparency of RentChain. My security deposit is held in escrow, giving me peace of mind that I'll get it back when I move out.",
+    avatar: "/placeholder.svg?height=80&width=80",
+    rating: 5,
+  },
+  {
+    id: 3,
+    name: "Emily Rodriguez",
+    role: "Property Manager",
+    content:
+      "Managing multiple properties is so much easier with RentChain. The blockchain verification eliminates paperwork and disputes.",
+    avatar: "/placeholder.svg?height=80&width=80",
+    rating: 4,
+  },
+];
+
+// FAQ data
+const faqs = [
+  {
+    question: "How do I rent a property?",
+    answer:
+      "Connect your MetaMask wallet, browse available properties, and click 'Rent Now' on the property you're interested in. Follow the prompts to complete the smart contract transaction for your rental agreement.",
+  },
+  {
+    question: "Is my payment secure?",
+    answer:
+      "Yes, all payments are secured by Ethereum blockchain technology. Your rent payments and security deposits are managed by smart contracts, ensuring transparent and trustless transactions.",
+  },
+  {
+    question: "How do I list my property?",
+    answer:
+      "Connect your wallet, click on 'List Your Property', fill in the details about your property, upload images, and set your rental terms. Once submitted, your property will be stored on IPFS and listed on our marketplace.",
+  },
+  {
+    question: "What happens to my security deposit?",
+    answer:
+      "Your security deposit is held in an escrow smart contract for the duration of your lease. It will be automatically returned to your wallet when you move out, provided there are no damages or outstanding payments.",
+  },
+  {
+    question: "Do I need cryptocurrency to use RentChain?",
+    answer:
+      "Yes, RentChain operates on the Ethereum blockchain, so you'll need ETH in your MetaMask wallet to pay for rent and transaction fees (gas).",
+  },
+];
+
+// Animation variants
+const fadeIn = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6 },
+  },
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2,
+    },
+  },
+};
 
 export default function Home() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
 
+  // const filteredProperties = mockProperties.filter((property) => {
+  //   const matchesSearch =
+  //     property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     property.location.toLowerCase().includes(searchTerm.toLowerCase())
+
+  //   if (activeTab === "all") return matchesSearch
+  //   if (activeTab === "available") return matchesSearch && property.isAvailable
+  //   if (activeTab === "rented") return matchesSearch && !property.isAvailable
+
+  //   return matchesSearch
+  // })
   const filteredProperties = mockProperties.filter((property) => {
+    // 1. Check if the property matches the search term
     const matchesSearch =
       property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      property.location.toLowerCase().includes(searchTerm.toLowerCase())
+      property.location.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (activeTab === "all") return matchesSearch
-    if (activeTab === "available") return matchesSearch && property.isAvailable
-    if (activeTab === "rented") return matchesSearch && !property.isAvailable
+    // 2. Apply tab-specific filtering *only if* it matches the search
+    if (activeTab === "all") {
+      // If 'All' tab is active, just return whether it matches the search
+      return matchesSearch;
+    }
+    if (activeTab === "available") {
+      // If 'Available' tab, return true only if it matches search AND is available
+      return matchesSearch && property.isAvailable;
+    }
+    if (activeTab === "rented") {
+      // If 'Rented' tab, return true only if it matches search AND is NOT available
+      return matchesSearch && !property.isAvailable;
+    }
 
-    return matchesSearch
-  })
+    // Default case (shouldn't be reached with the current tabs)
+    return matchesSearch;
+  });
+  console.log("Filtered properties count:", filteredProperties.length); // <-- And this line
 
   return (
-    <div className="container py-8 md:py-12">
-      {/* Hero Section */}
-      <section className="mb-12 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 gradient-text">Find Your Perfect Rental</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Discover and rent properties with the security and transparency of blockchain technology
-        </p>
+    <div className="flex flex-col">
+      {/* Enhanced Hero Section */}
+      <section className="relative w-full bg-gradient-to-r from-primary/10 to-accent/10">
+        <div className="absolute inset-0 z-0 opacity-40">
+          <Image
+            src="/images/hero.jpg"
+            alt="Real estate background"
+            fill
+            className="object-cover"
+          />
+        </div>
+        <div className="container relative z-10 py-16 md:py-24 lg:py-32">
+          <div className="grid gap-8 md:grid-cols-2 items-center">
+            <motion.div
+              className="space-y-6"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight gradient-text">
+                Rent & List Properties Securely with Blockchain
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-xl">
+                A decentralized way to list, rent, and manage properties with
+                smart contracts & crypto payments.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  href="#properties"
+                  className="transition-all duration-200 ease-in-out hover:underline"
+                >
+                  <Button size="lg" className="web3-button">
+                    Explore Properties
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/list-property">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
+                  >
+                    List Your Property
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
 
-        <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by location or property name"
-              className="pl-9 border"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <motion.div
+              className="bg-card rounded-xl border shadow-lg p-6"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <h2 className="text-2xl font-semibold mb-4">
+                Find Your Perfect Rental
+              </h2>
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by location or property name"
+                    className="pl-9 border"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <Button className="flex-1 web3-button">Search</Button>
+                  <Button
+                    variant="outline"
+                    className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 mr-2" />
+                    Filters
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
           </div>
-          <Button variant="outline" className="sm:w-auto hover:border-accent hover:text-white">
-            <SlidersHorizontal className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
         </div>
       </section>
 
-      {/* Property Listings */}
-      <section>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-secondary">Property Listings</h2>
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="available">Available</TabsTrigger>
-              <TabsTrigger value="rented">Rented</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+      {/* Trending Properties Section */}
+      <section className="py-16 bg-muted/30" id="properties">
+        <div className="container">
+          <motion.div
+            className="flex justify-between items-center mb-8"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <div>
+              <Badge className="mb-2">FEATURED LISTINGS</Badge>
+              <h2 className="text-3xl font-bold">Trending Properties</h2>
+            </div>
+            <Tabs
+              defaultValue="all"
+              value={activeTab}
+              onValueChange={setActiveTab}
+            >
+              <TabsList>
+                <TabsTrigger id="all_properties" value="all">
+                  All
+                </TabsTrigger>
+                <TabsTrigger value="available">Available</TabsTrigger>
+                <TabsTrigger value="rented">Rented</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </motion.div>
 
-        {filteredProperties.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProperties.map((property) => (
-              <PropertyCard key={property.id} {...property} />
+          {filteredProperties.length > 0 ? (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              key={activeTab}
+              initial="hidden"
+              animate="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+            >
+              {filteredProperties.map((property, index) => (
+                <motion.div key={property.id} variants={fadeIn}>
+                  <PropertyCard {...property} />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium">No properties found</h3>
+              <p className="text-muted-foreground">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          )}
+
+          <motion.div
+            className="mt-10 text-center"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Link href="#all_properties">
+              <Button
+                variant="outline"
+                size="lg"
+                className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
+              >
+                View All Properties
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Key Features Section */}
+      <section className="py-16 bg-muted/30">
+        <div className="container">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Badge className="mb-2">POWERED BY BLOCKCHAIN</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Key Features
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Experience the future of property rentals with our decentralized
+              platform
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-2 lg:grid-cols-5 gap-6"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+          >
+            <motion.div
+              variants={fadeIn}
+              className="bg-card rounded-lg p-6 text-center border hover:shadow-md transition-all"
+            >
+              <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">Decentralized Listings</h3>
+              <p className="text-sm text-muted-foreground">
+                Secure and trustless property rentals
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeIn}
+              className="bg-card rounded-lg p-6 text-center border hover:shadow-md transition-all"
+            >
+              <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileContract className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">Smart Contract Payments</h3>
+              <p className="text-sm text-muted-foreground">
+                No intermediaries, direct transactions
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeIn}
+              className="bg-card rounded-lg p-6 text-center border hover:shadow-md transition-all"
+            >
+              <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Database className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">IPFS-Based Storage</h3>
+              <p className="text-sm text-muted-foreground">
+                Decentralized image & metadata storage
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeIn}
+              className="bg-card rounded-lg p-6 text-center border hover:shadow-md transition-all"
+            >
+              <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Wallet className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">MetaMask Authentication</h3>
+              <p className="text-sm text-muted-foreground">
+                Easy Web3 wallet integration
+              </p>
+            </motion.div>
+
+            <motion.div
+              variants={fadeIn}
+              className="bg-card rounded-lg p-6 text-center border hover:shadow-md transition-all"
+            >
+              <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-2">Escrow Security</h3>
+              <p className="text-sm text-muted-foreground">
+                Safe fund transfers and deposit handling
+              </p>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-16">
+        <div className="container">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Badge className="mb-2">SIMPLE PROCESS</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              How It Works
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Get started with RentChain in just a few simple steps
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+          >
+            <motion.div variants={fadeIn} className="relative">
+              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl font-bold text-primary">1</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                Sign in with MetaMask
+              </h3>
+              <p className="text-muted-foreground">
+                Connect your wallet to access the platform
+              </p>
+              <div className="hidden lg:block absolute top-8 right-0 w-1/2 h-0.5 bg-primary/20"></div>
+            </motion.div>
+
+            <motion.div variants={fadeIn} className="relative">
+              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl font-bold text-primary">2</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                Browse & List Properties
+              </h3>
+              <p className="text-muted-foreground">
+                Search for rentals or add new listings
+              </p>
+              <div className="hidden lg:block absolute top-8 right-0 w-1/2 h-0.5 bg-primary/20"></div>
+            </motion.div>
+
+            <motion.div variants={fadeIn} className="relative">
+              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl font-bold text-primary">3</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                Make Secure Transactions
+              </h3>
+              <p className="text-muted-foreground">
+                Rent properties via smart contracts
+              </p>
+              <div className="hidden lg:block absolute top-8 right-0 w-1/2 h-0.5 bg-primary/20"></div>
+            </motion.div>
+
+            <motion.div variants={fadeIn}>
+              <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                <span className="text-2xl font-bold text-primary">4</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                Manage Rentals Easily
+              </h3>
+              <p className="text-muted-foreground">
+                Track agreements & payments from your dashboard
+              </p>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            className="mt-12 text-center"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Button size="lg" className="web3-button">
+              Get Started Now
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-16">
+        <div className="container">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Badge className="mb-2">TESTIMONIALS</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              What Our Users Say
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Hear from property owners and tenants who use RentChain
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="grid md:grid-cols-3 gap-6"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+          >
+            {testimonials.map((testimonial) => (
+              <motion.div
+                key={testimonial.id}
+                variants={fadeIn}
+                className="bg-card rounded-lg p-6 border hover:shadow-md transition-all"
+              >
+                <div className="flex items-center mb-4">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden mr-4">
+                    <Image
+                      src={testimonial.avatar || "/placeholder.svg"}
+                      alt={testimonial.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">{testimonial.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {testimonial.role}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  "{testimonial.content}"
+                </p>
+                <div className="flex">
+                  {Array.from({ length: testimonial.rating }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 text-accent fill-accent" />
+                  ))}
+                </div>
+              </motion.div>
             ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium">No properties found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters</p>
-          </div>
-        )}
+          </motion.div>
+
+          <motion.div
+            className="flex flex-wrap justify-center gap-6 mt-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
+              <Image
+                src="/placeholder.svg?height=30&width=30"
+                alt="Ethereum"
+                width={30}
+                height={30}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium">Powered by Ethereum</span>
+            </div>
+            <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
+              <Image
+                src="/placeholder.svg?height=30&width=30"
+                alt="IPFS"
+                width={30}
+                height={30}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium">IPFS Storage</span>
+            </div>
+            <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
+              <Image
+                src="/placeholder.svg?height=30&width=30"
+                alt="MetaMask"
+                width={30}
+                height={30}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium">MetaMask Compatible</span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-16 bg-muted/30">
+        <div className="container">
+          <motion.div
+            className="text-center mb-12"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Badge className="mb-2">QUESTIONS</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Find answers to common questions about RentChain
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="max-w-3xl mx-auto"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <Accordion type="single" collapsible className="w-full">
+              {faqs.map((faq, index) => (
+                <AccordionItem key={index} value={`item-${index}`}>
+                  <AccordionTrigger className="text-left font-medium">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 bg-gradient-to-r from-primary/10 to-accent/10">
+        <div className="container">
+          <motion.div
+            className="text-center max-w-3xl mx-auto"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeIn}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 gradient-text">
+              Ready to Transform Your Property Rental Experience?
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              Join thousands of property owners and tenants using blockchain
+              technology for secure, transparent rentals.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="#properties">
+                <Button size="lg" className="web3-button">
+                  Explore Properties
+                </Button>
+              </Link>
+              <Link href="/list-property">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
+                >
+                  List Your Property
+                </Button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
       </section>
     </div>
-  )
+  );
 }

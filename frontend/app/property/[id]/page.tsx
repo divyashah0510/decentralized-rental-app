@@ -164,15 +164,15 @@ export default function PropertyDetails() {
                 variant="outline"
                 size="icon"
                 onClick={() => setIsFavorite(!isFavorite)}
-                className="hover:border-accent hover:text-accent"
+                className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
                 aria-label="Add to favorites"
               >
-                <Heart className={`h-4 w-4 ${isFavorite ? "fill-accent text-accent" : ""}`} />
+                <Heart className={`h-4 w-4 ${isFavorite ? "fill-[#e4ecf8] text-[#3080e8]" : ""}`} />
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                className="hover:border-accent hover:text-accent"
+                className="hover:bg-[#e4ecf8] hover:text-[#3080e8]"
                 aria-label="Share"
               >
                 <Share2 className="h-4 w-4" />
