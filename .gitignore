@@ -18,3 +18,6 @@ ignition/deployments/chain-31337
 
 # Node modules
 node_modules/
+
+# Next.js build output
+frontend/.next/
