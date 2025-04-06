@@ -1,145 +1,139 @@
-// // SPDX-License-Identifier: MIT
-// // pragma solidity ^0.8.28;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-// // import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol"; // Corrected path
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol"; // If needed to track active rentals
 
-// // contract Escrow is ReentrancyGuard {
-// //     mapping(uint256 => uint256) public deposits;
-// //     mapping(uint256 => address) public landlords;
-// //     mapping(uint256 => address) public tenants;
+contract Escrow is ReentrancyGuard {
+    // Address of the RentalAgreement contract (must be authorized to call release functions)
+    address public rentalAgreementContract;
 
-// //     event PaymentDeposited(uint256 indexed propertyId, address indexed tenant, uint256 amount);
-// //     event PaymentReleased(uint256 indexed propertyId, address indexed landlord);
-// //     event SecurityDepositRefunded(uint256 indexed propertyId, address indexed tenant);
+    // Balances per rental agreement ID
+    mapping(uint256 => uint256) public rentBalance;
+    mapping(uint256 => uint256) public depositBalance;
 
-// //     function depositRent(uint256 _propertyId) external payable nonReentrant {
-// //         deposits[_propertyId] += msg.value;
-// //         emit PaymentDeposited(_propertyId, msg.sender, msg.value);
-// //     }
+    event RentalAgreementContractSet(address indexed contractAddress);
+    event FundsDeposited(
+        uint256 indexed rentalId,
+        uint256 rentAmount,
+        uint256 depositAmount,
+        address indexed payer
+    );
+    event RentReleased(
+        uint256 indexed rentalId,
+        address indexed landlord,
+        uint256 amount
+    );
+    event DepositReleased(
+        uint256 indexed rentalId,
+        address indexed tenant,
+        uint256 amount
+    );
+    event RentWithdrawn(
+        uint256 indexed rentalId,
+        address indexed landlord,
+        uint256 amount
+    ); // Specific event for landlord withdrawal
 
-// //     function releasePaymentToLandlord(uint256 _propertyId) external nonReentrant {
-// //         address payable landlord = payable(landlords[_propertyId]);
-// //         uint256 amount = deposits[_propertyId];
-// //         require(amount > 0, "No funds available");
+    modifier onlyRentalAgreementContract() {
+        require(
+            msg.sender == rentalAgreementContract,
+            "ESC: Caller not RentalAgreement contract"
+        );
+        _;
+    }
 
-// //         deposits[_propertyId] = 0;
-// //         landlord.transfer(amount);
+    constructor(address _rentalAgreementContractAddress) {
+        require(
+            _rentalAgreementContractAddress != address(0),
+            "ESC: Zero address"
+        );
+        rentalAgreementContract = _rentalAgreementContractAddress;
+        emit RentalAgreementContractSet(_rentalAgreementContractAddress);
+    }
 
-// //         emit PaymentReleased(_propertyId, landlord);
-// //     }
+    // --- Fund Management (Called by RentalAgreement) ---
 
-// //     function refundSecurityDeposit(uint256 _propertyId) external nonReentrant {
-// //         address payable tenant = payable(tenants[_propertyId]);
-// //         uint256 amount = deposits[_propertyId];
-// //         require(amount > 0, "No funds available");
+    // Called by RentalAgreement when a tenant pays rent or initial deposit+rent
+    function depositFunds(
+        uint256 _rentalId,
+        uint256 _amountForRent,
+        uint256 _amountForDeposit,
+        address _payer // Keep track of who paid originally
+    ) external payable onlyRentalAgreementContract nonReentrant {
+        require(
+            msg.value == _amountForRent + _amountForDeposit,
+            "ESC: Incorrect ETH sent"
+        );
 
-// //         deposits[_propertyId] = 0;
-// //         tenant.transfer(amount);
+        if (_amountForDeposit > 0) {
+            require(
+                depositBalance[_rentalId] == 0,
+                "ESC: Deposit already paid"
+            );
+            depositBalance[_rentalId] += _amountForDeposit;
+        }
+        if (_amountForRent > 0) {
+            rentBalance[_rentalId] += _amountForRent;
+        }
 
-// //         emit SecurityDepositRefunded(_propertyId, tenant);
-// //     }
-// // }
-// pragma solidity ^0.8.20;
+        emit FundsDeposited(
+            _rentalId,
+            _amountForRent,
+            _amountForDeposit,
+            _payer
+        );
+    }
 
+    // Called by RentalAgreement to release *accumulated* rent to the landlord
+    // This is typically called *after* the landlord initiates a withdrawal from RentalAgreement
+    function releaseRentToLandlord(
+        uint256 _rentalId,
+        address payable _landlord,
+        uint256 _amount
+    ) external onlyRentalAgreementContract nonReentrant {
+        require(_landlord != address(0), "ESC: Invalid landlord address");
+        require(
+            rentBalance[_rentalId] >= _amount,
+            "ESC: Insufficient rent balance"
+        );
+        require(_amount > 0, "ESC: Amount must be positive");
 
-// import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // Added for potential future extensions
-// import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol"; // If needed to track active rentals
+        rentBalance[_rentalId] -= _amount;
 
-// contract Escrow is ReentrancyGuard {
+        (bool success, ) = _landlord.call{value: _amount}("");
+        require(success, "ESC: ETH transfer failed");
 
-//     // Address of the RentalAgreement contract (must be authorized to call release functions)
-//     address public rentalAgreementContract;
+        emit RentReleased(_rentalId, _landlord, _amount);
+        emit RentWithdrawn(_rentalId, _landlord, _amount); // Match frontend action
+    }
 
-//     // Balances per rental agreement ID
-//     mapping(uint256 => uint256) public rentBalance;
-//     mapping(uint256 => uint256) public depositBalance;
+    // Called by RentalAgreement when conditions are met to refund the deposit
+    function releaseDepositToTenant(
+        uint256 _rentalId,
+        address payable _tenant
+    ) external onlyRentalAgreementContract nonReentrant {
+        require(_tenant != address(0), "ESC: Invalid tenant address");
+        uint256 depositAmount = depositBalance[_rentalId];
+        require(depositAmount > 0, "ESC: No deposit to release");
 
-//     event RentalAgreementContractSet(address indexed contractAddress);
-//     event FundsDeposited(uint256 indexed rentalId, uint256 rentAmount, uint256 depositAmount, address indexed payer);
-//     event RentReleased(uint256 indexed rentalId, address indexed landlord, uint256 amount);
-//     event DepositReleased(uint256 indexed rentalId, address indexed tenant, uint256 amount);
-//     event RentWithdrawn(uint256 indexed rentalId, address indexed landlord, uint256 amount); // Specific event for landlord withdrawal
+        depositBalance[_rentalId] = 0; // Update balance first (Checks-Effects-Interactions)
 
+        (bool success, ) = _tenant.call{value: depositAmount}("");
+        require(success, "ESC: ETH transfer failed");
 
-//     modifier onlyRentalAgreementContract() {
-//         require(msg.sender == rentalAgreementContract, "ESC: Caller not RentalAgreement contract");
-//         _;
-//     }
+        emit DepositReleased(_rentalId, _tenant, depositAmount);
+    }
 
-//     constructor(address _rentalAgreementContractAddress) {
-//         require(_rentalAgreementContractAddress != address(0), "ESC: Zero address");
-//         rentalAgreementContract = _rentalAgreementContractAddress;
-//         emit RentalAgreementContractSet(_rentalAgreementContractAddress);
-//     }
+    // --- View Functions ---
 
-//     // --- Fund Management (Called by RentalAgreement) ---
+    function getRentBalance(uint256 _rentalId) external view returns (uint256) {
+        return rentBalance[_rentalId];
+    }
 
-//     // Called by RentalAgreement when a tenant pays rent or initial deposit+rent
-//     function depositFunds(
-//         uint256 _rentalId,
-//         uint256 _amountForRent,
-//         uint256 _amountForDeposit,
-//         address _payer // Keep track of who paid originally
-//     ) external payable onlyRentalAgreementContract nonReentrant {
-//         require(msg.value == _amountForRent + _amountForDeposit, "ESC: Incorrect ETH sent");
-
-//         if (_amountForDeposit > 0) {
-//             require(depositBalance[_rentalId] == 0, "ESC: Deposit already paid");
-//             depositBalance[_rentalId] += _amountForDeposit;
-//         }
-//         if (_amountForRent > 0) {
-//             rentBalance[_rentalId] += _amountForRent;
-//         }
-
-//         emit FundsDeposited(_rentalId, _amountForRent, _amountForDeposit, _payer);
-//     }
-
-//     // Called by RentalAgreement to release *accumulated* rent to the landlord
-//     // This is typically called *after* the landlord initiates a withdrawal from RentalAgreement
-//     function releaseRentToLandlord(uint256 _rentalId, address payable _landlord, uint256 _amount)
-//         external
-//         onlyRentalAgreementContract
-//         nonReentrant
-//     {
-//         require(_landlord != address(0), "ESC: Invalid landlord address");
-//         require(rentBalance[_rentalId] >= _amount, "ESC: Insufficient rent balance");
-//         require(_amount > 0, "ESC: Amount must be positive");
-
-//         rentBalance[_rentalId] -= _amount;
-
-//         (bool success, ) = _landlord.call{value: _amount}("");
-//         require(success, "ESC: ETH transfer failed");
-
-//         emit RentReleased(_rentalId, _landlord, _amount);
-//         emit RentWithdrawn(_rentalId, _landlord, _amount); // Match frontend action
-//     }
-
-
-//     // Called by RentalAgreement when conditions are met to refund the deposit
-//     function releaseDepositToTenant(uint256 _rentalId, address payable _tenant)
-//         external
-//         onlyRentalAgreementContract
-//         nonReentrant
-//     {
-//         require(_tenant != address(0), "ESC: Invalid tenant address");
-//         uint256 depositAmount = depositBalance[_rentalId];
-//         require(depositAmount > 0, "ESC: No deposit to release");
-
-//         depositBalance[_rentalId] = 0; // Update balance first (Checks-Effects-Interactions)
-
-//         (bool success, ) = _tenant.call{value: depositAmount}("");
-//         require(success, "ESC: ETH transfer failed");
-
-//         emit DepositReleased(_rentalId, _tenant, depositAmount);
-//     }
-
-//     // --- View Functions ---
-
-//     function getRentBalance(uint256 _rentalId) external view returns (uint256) {
-//         return rentBalance[_rentalId];
-//     }
-
-//     function getDepositBalance(uint256 _rentalId) external view returns (uint256) {
-//         return depositBalance[_rentalId];
-//     }
-// }
+    function getDepositBalance(
+        uint256 _rentalId
+    ) external view returns (uint256) {
+        return depositBalance[_rentalId];
+    }
+}

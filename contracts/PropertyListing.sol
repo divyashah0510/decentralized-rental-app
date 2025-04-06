@@ -1,69 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
-// pragma solidity ^0.8.28;
-
-// import "@openzeppelin/contracts/access/Ownable.sol";
-
-// contract PropertyListing is Ownable {
-//     struct Property {
-//         uint256 id;
-//         address owner;
-//         string ipfsHash;
-//         uint256 price;
-//         uint256 securityDeposit;
-//         uint256 duration;
-//         bool isAvailable;
-        
-//     }
-
-//     uint256 private propertyCounter;
-//     mapping(uint256 => Property) public properties;
-
-//     constructor() Ownable(msg.sender) {}
-
-//     event PropertyListed(uint256 indexed propertyId, address indexed owner);
-//     event PropertyUpdated(uint256 indexed propertyId, uint256 price);
-//     event PropertyRemoved(uint256 indexed propertyId);
-
-//     function listProperty(string memory _ipfsHash, uint256 _price, uint256 _securityDeposit, uint256 _duration) external {
-//         propertyCounter++;
-//         properties[propertyCounter] = Property({
-//             id: propertyCounter,
-//             owner: msg.sender,
-//             ipfsHash: _ipfsHash,
-//             price: _price,
-//             securityDeposit: _securityDeposit,
-//             duration: _duration,
-//             isAvailable: true
-//         });
-
-//         emit PropertyListed(propertyCounter, msg.sender);
-//     }
-
-//     function updateProperty(uint256 _propertyId, uint256 _price, uint256 _securityDeposit, uint256 _duration) external {
-//         Property storage property = properties[_propertyId];
-//         require(property.owner == msg.sender, "Not the property owner");
-//         property.price = _price;
-//         property.securityDeposit = _securityDeposit;
-//         property.duration = _duration;
-
-//         emit PropertyUpdated(_propertyId, _price);
-//     }
-
-//     function removeProperty(uint256 _propertyId) external {
-//         require(properties[_propertyId].owner == msg.sender, "Not the property owner");
-//         delete properties[_propertyId];
-
-//         emit PropertyRemoved(_propertyId);
-//     }
-
-//     function getProperty(uint256 _propertyId) external view returns (Property memory) {
-//         return properties[_propertyId];
-//     }
-// }
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28; // Use a recent fixed version
 
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol"; // Added for potential future extensions
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol"; // Corrected path
 import "hardhat/console.sol";
 
 // Interface for RentalAgreement contract to update property status

@@ -1,276 +1,335 @@
-// // pragma solidity ^0.8.28;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-// // import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "./PropertyListing.sol"; // Import PropertyListing contract;
+import "./Escrow.sol"; // Import Escrow contract
 
-// // contract RentalAgreement is ReentrancyGuard {
-// //     struct Rental {
-// //         uint256 propertyId;
-// //         address tenant;
-// //         bool isActive;
-// //         bool hasMovedIn;
-// //     }
+contract RentalAgreement is ReentrancyGuard {
+    using Counters for Counters.Counter;
+    Counters.Counter private _rentalIds;
 
-// //     mapping(uint256 => Rental) public rentals;
+    // Addresses of other contracts
+    PropertyListing public propertyListingContract;
+    Escrow public escrowContract;
+    address private _escrowAddress; // Add private variable to store address
 
-// //     event PropertyRented(uint256 indexed propertyId, address indexed tenant);
-// //     event MoveInConfirmed(uint256 indexed propertyId);
-// //     event RentalEnded(uint256 indexed propertyId);
+    enum RentalStatus {
+        PendingDeposit,
+        Active,
+        Ended,
+        DepositReleaseRequested,
+        DepositReleased
+    }
 
-// //     function rentProperty(uint256 _propertyId) external payable nonReentrant {
-// //         require(rentals[_propertyId].tenant == address(0), "Already rented");
+    struct Rental {
+        uint256 rentalId;
+        uint256 propertyId;
+        address tenant;
+        address landlord;
+        uint256 startDate; // Timestamp
+        uint256 endDate; // Timestamp
+        uint256 monthlyRentAmount; // Wei
+        uint256 securityDepositAmount; // Wei
+        uint256 rentPaidUntil; // Timestamp until which rent is covered
+        RentalStatus status;
+        bool landlordApprovedDepositRelease; // For the release mechanism
+    }
 
-// //         rentals[_propertyId] = Rental({
-// //             propertyId: _propertyId,
-// //             tenant: msg.sender,
-// //             isActive: true,
-// //             hasMovedIn: false
-// //         });
+    mapping(uint256 => Rental) public rentals; // rentalId => Rental
+    mapping(uint256 => uint256) public activeRentalIdForProperty; // propertyId => active rentalId
+    mapping(address => uint256[]) public rentalsByTenant;
+    mapping(address => uint256[]) public rentalsByLandlord;
 
-// //         emit PropertyRented(_propertyId, msg.sender);
-// //     }
+    event PropertyRented(
+        uint256 indexed rentalId,
+        uint256 indexed propertyId,
+        address indexed tenant,
+        address landlord,
+        uint256 endDate,
+        uint256 monthlyRentAmount,
+        uint256 securityDepositAmount
+    );
+    event RentPaid(uint256 indexed rentalId, uint256 paidUntil, uint256 amount);
+    event RentWithdrawalRequested(
+        uint256 indexed rentalId,
+        address indexed landlord
+    ); // Matches frontend MyProperties
+    // RentWithdrawn event comes from Escrow after successful transfer
+    event DepositReleaseRequested(
+        uint256 indexed rentalId,
+        address indexed tenant
+    ); // Matches frontend MyRentals
+    event LandlordApprovedDepositRelease(
+        uint256 indexed rentalId,
+        address indexed landlord
+    );
+    event RentalEnded(uint256 indexed rentalId, uint256 propertyId); // Indicates deposit released & property available
+    // DepositReleased event comes from Escrow
 
-// //     function confirmMoveIn(uint256 _propertyId) external {
-// //         require(rentals[_propertyId].tenant == msg.sender, "Not the tenant");
+    modifier onlyTenant(uint256 _rentalId) {
+        require(
+            rentals[_rentalId].tenant == msg.sender,
+            "RA: Caller not tenant"
+        );
+        _;
+    }
 
-// //         rentals[_propertyId].hasMovedIn = true;
-// //         emit MoveInConfirmed(_propertyId);
-// //     }
+    modifier onlyLandlord(uint256 _rentalId) {
+        require(
+            rentals[_rentalId].landlord == msg.sender,
+            "RA: Caller not landlord"
+        );
+        _;
+    }
 
-// //     function endRental(uint256 _propertyId) external {
-// //         require(rentals[_propertyId].tenant == msg.sender, "Not the tenant");
+    modifier rentalIsActive(uint256 _rentalId) {
+        require(
+            rentals[_rentalId].status == RentalStatus.Active,
+            "RA: Rental not active"
+        );
+        _;
+    }
 
-// //         rentals[_propertyId].isActive = false;
-// //         emit RentalEnded(_propertyId);
-// //     }
-// // }
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.20;
+    modifier escrowIsSet() {
+        require(_escrowAddress != address(0), "RA: Escrow contract not set");
+        _;
+    }
 
-// import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-// import "@openzeppelin/contracts/utils/Counters.sol";
-// import "./PropertyListing.sol"; // Import PropertyListing contract;
-// import "./Escrow.sol"; // Import Escrow contract
+    constructor(address _propertyListingAddress, address _escrowAddressInitial) {
+        require(_propertyListingAddress != address(0), "RA: Zero PL address");
+        // Allow address(0) initially for Escrow, to be set later
+        propertyListingContract = PropertyListing(_propertyListingAddress);
+        _escrowAddress = _escrowAddressInitial; // Store initial address
+        if (_escrowAddressInitial != address(0)) {
+             escrowContract = Escrow(_escrowAddressInitial);
+        }
+    }
 
-// contract RentalAgreement is ReentrancyGuard {
-//     using Counters for Counters.Counter;
-//     Counters.Counter private _rentalIds;
+    // --- Setter Function --- 
+    // Add access control (e.g., onlyOwner) if this should be restricted outside deployment scripts
+    function setEscrowContract(address _newEscrowAddress) external {
+        require(_newEscrowAddress != address(0), "RA: Zero Escrow address");
+        require(_escrowAddress == address(0), "RA: Escrow address already set"); // Prevent changing once set
+        _escrowAddress = _newEscrowAddress;
+        escrowContract = Escrow(_newEscrowAddress);
+        // Add an event emission if desired
+    }
 
-//     // Addresses of other contracts
-//     PropertyListing public propertyListingContract;
-//     Escrow public escrowContract;
+    // --- Rental Lifecycle Functions ---
 
-//     enum RentalStatus { PendingDeposit, Active, Ended, DepositReleaseRequested, DepositReleased }
+    function rentProperty(uint256 _propertyId) external payable nonReentrant escrowIsSet {
+        PropertyListing.Property memory property = propertyListingContract
+            .getProperty(_propertyId);
 
-//     struct Rental {
-//         uint256 rentalId;
-//         uint256 propertyId;
-//         address tenant;
-//         address landlord;
-//         uint256 startDate; // Timestamp
-//         uint256 endDate; // Timestamp
-//         uint256 monthlyRentAmount; // Wei
-//         uint256 securityDepositAmount; // Wei
-//         uint256 rentPaidUntil; // Timestamp until which rent is covered
-//         RentalStatus status;
-//         bool landlordApprovedDepositRelease; // For the release mechanism
-//     }
+        require(property.isListed, "RA: Property not listed");
+        require(property.isAvailable, "RA: Property not available");
+        require(
+            block.timestamp >= property.availableFromTimestamp,
+            "RA: Property not yet available"
+        );
+        require(
+            property.owner != msg.sender,
+            "RA: Owner cannot rent own property"
+        );
 
-//     mapping(uint256 => Rental) public rentals; // rentalId => Rental
-//     mapping(uint256 => uint256) public activeRentalIdForProperty; // propertyId => active rentalId
-//     mapping(address => uint256[]) public rentalsByTenant;
-//     mapping(address => uint256[]) public rentalsByLandlord;
+        uint256 firstMonthRent = property.pricePerMonth;
+        uint256 securityDeposit = property.securityDeposit;
+        uint256 requiredPayment = firstMonthRent + securityDeposit;
 
+        require(msg.value == requiredPayment, "RA: Incorrect payment amount");
 
-//     event PropertyRented(
-//         uint256 indexed rentalId,
-//         uint256 indexed propertyId,
-//         address indexed tenant,
-//         address landlord,
-//         uint256 endDate,
-//         uint256 monthlyRentAmount,
-//         uint256 securityDepositAmount
-//     );
-//     event RentPaid(uint256 indexed rentalId, uint256 paidUntil, uint256 amount);
-//     event RentWithdrawalRequested(uint256 indexed rentalId, address indexed landlord); // Matches frontend MyProperties
-//     // RentWithdrawn event comes from Escrow after successful transfer
-//     event DepositReleaseRequested(uint256 indexed rentalId, address indexed tenant); // Matches frontend MyRentals
-//     event LandlordApprovedDepositRelease(uint256 indexed rentalId, address indexed landlord);
-//     event RentalEnded(uint256 indexed rentalId, uint256 propertyId); // Indicates deposit released & property available
-//     // DepositReleased event comes from Escrow
+        _rentalIds.increment();
+        uint256 newRentalId = _rentalIds.current();
 
-//     modifier onlyTenant(uint256 _rentalId) {
-//         require(rentals[_rentalId].tenant == msg.sender, "RA: Caller not tenant");
-//         _;
-//     }
+        uint256 rentalDurationSeconds = uint256(
+            property.minRentalPeriodMonths
+        ) * 30 days; // Approximation
+        uint256 startDate = block.timestamp;
+        uint256 endDate = startDate + rentalDurationSeconds;
+        uint256 rentPaidUntil = startDate + 30 days; // Covers the first month
 
-//      modifier onlyLandlord(uint256 _rentalId) {
-//         require(rentals[_rentalId].landlord == msg.sender, "RA: Caller not landlord");
-//         _;
-//     }
+        rentals[newRentalId] = Rental({
+            rentalId: newRentalId,
+            propertyId: _propertyId,
+            tenant: msg.sender,
+            landlord: property.owner,
+            startDate: startDate,
+            endDate: endDate,
+            monthlyRentAmount: firstMonthRent,
+            securityDepositAmount: securityDeposit,
+            rentPaidUntil: rentPaidUntil,
+            status: RentalStatus.Active, // Active once deposit+rent is paid
+            landlordApprovedDepositRelease: false
+        });
 
-//     modifier rentalIsActive(uint256 _rentalId) {
-//         require(rentals[_rentalId].status == RentalStatus.Active, "RA: Rental not active");
-//         _;
-//     }
+        activeRentalIdForProperty[_propertyId] = newRentalId;
+        rentalsByTenant[msg.sender].push(newRentalId);
+        rentalsByLandlord[property.owner].push(newRentalId);
 
-//     constructor(address _propertyListingAddress, address _escrowAddress) {
-//         require(_propertyListingAddress != address(0) && _escrowAddress != address(0), "RA: Zero address");
-//         propertyListingContract = PropertyListing(_propertyListingAddress);
-//         escrowContract = Escrow(_escrowAddress);
-//     }
+        // Mark property as rented in PropertyListing contract
+        propertyListingContract.markAsRented(
+            _propertyId,
+            msg.sender,
+            newRentalId
+        );
 
-//     // --- Rental Lifecycle Functions ---
+        // Deposit funds into Escrow contract
+        escrowContract.depositFunds{value: requiredPayment}(
+            newRentalId,
+            firstMonthRent,
+            securityDeposit,
+            msg.sender
+        );
 
-//     function rentProperty(uint256 _propertyId) external payable nonReentrant {
-//         PropertyListing.Property memory property = propertyListingContract.getProperty(_propertyId);
+        emit PropertyRented(
+            newRentalId,
+            _propertyId,
+            msg.sender,
+            property.owner,
+            endDate,
+            firstMonthRent,
+            securityDeposit
+        );
+    }
 
-//         require(property.isListed, "RA: Property not listed");
-//         require(property.isAvailable, "RA: Property not available");
-//         require(block.timestamp >= property.availableFromTimestamp, "RA: Property not yet available");
-//         require(property.owner != msg.sender, "RA: Owner cannot rent own property");
+    function payRent(
+        uint256 _rentalId
+    )
+        external
+        payable
+        nonReentrant
+        onlyTenant(_rentalId)
+        rentalIsActive(_rentalId)
+        escrowIsSet
+    {
+        Rental storage rental = rentals[_rentalId];
+        require(
+            block.timestamp >= rental.rentPaidUntil - 7 days,
+            "RA: Too early to pay next rent"
+        ); // Allow paying a bit early
+        require(
+            msg.value == rental.monthlyRentAmount,
+            "RA: Incorrect rent amount"
+        );
 
-//         uint256 firstMonthRent = property.pricePerMonth;
-//         uint256 securityDeposit = property.securityDeposit;
-//         uint256 requiredPayment = firstMonthRent + securityDeposit;
+        // Update rent paid until date
+        rental.rentPaidUntil += 30 days; // Simple monthly addition
 
-//         require(msg.value == requiredPayment, "RA: Incorrect payment amount");
+        // Deposit rent into Escrow
+        escrowContract.depositFunds{value: msg.value}(
+            _rentalId,
+            msg.value, // Amount for rent
+            0,         // Amount for deposit (none for regular rent payment)
+            msg.sender
+        );
 
-//         _rentalIds.increment();
-//         uint256 newRentalId = _rentalIds.current();
+        emit RentPaid(_rentalId, rental.rentPaidUntil, msg.value);
+    }
 
-//         uint256 rentalDurationSeconds = uint256(property.minRentalPeriodMonths) * 30 days; // Approximation
-//         uint256 startDate = block.timestamp;
-//         uint256 endDate = startDate + rentalDurationSeconds;
-//         uint256 rentPaidUntil = startDate + 30 days; // Covers the first month
+    // Called by Landlord to initiate withdrawal of accumulated rent (matches My Properties UI)
+    function withdrawRent(
+        uint256 _rentalId
+    ) external nonReentrant onlyLandlord(_rentalId) escrowIsSet {
+        // Can be called when rental is Active or Ended (to collect final rent)
+        require(
+            rentals[_rentalId].status == RentalStatus.Active ||
+                rentals[_rentalId].status == RentalStatus.Ended,
+            "RA: Rental not active or ended"
+        );
 
-//         rentals[newRentalId] = Rental({
-//             rentalId: newRentalId,
-//             propertyId: _propertyId,
-//             tenant: msg.sender,
-//             landlord: property.owner,
-//             startDate: startDate,
-//             endDate: endDate,
-//             monthlyRentAmount: firstMonthRent,
-//             securityDepositAmount: securityDeposit,
-//             rentPaidUntil: rentPaidUntil,
-//             status: RentalStatus.Active, // Active once deposit+rent is paid
-//             landlordApprovedDepositRelease: false
-//         });
+        uint256 availableRent = escrowContract.getRentBalance(_rentalId);
+        require(availableRent > 0, "RA: No rent available to withdraw");
 
-//         activeRentalIdForProperty[_propertyId] = newRentalId;
-//         rentalsByTenant[msg.sender].push(newRentalId);
-//         rentalsByLandlord[property.owner].push(newRentalId);
+        emit RentWithdrawalRequested(_rentalId, msg.sender);
 
-//         // Mark property as rented in PropertyListing contract
-//         propertyListingContract.markAsRented(_propertyId, msg.sender, newRentalId);
+        // Tell Escrow to release the funds
+        escrowContract.releaseRentToLandlord(
+            _rentalId,
+            payable(msg.sender),
+            availableRent
+        );
+        // Escrow contract emits RentWithdrawn event upon success
+    }
 
-//         // Deposit funds into Escrow contract
-//         escrowContract.depositFunds{value: requiredPayment}(
-//             newRentalId,
-//             firstMonthRent,
-//             securityDeposit,
-//             msg.sender
-//         );
+    // Called by Tenant to request deposit release after rental period ends (matches My Rentals UI)
+    function requestDepositRelease(
+        uint256 _rentalId
+    ) external nonReentrant onlyTenant(_rentalId) {
+        Rental storage rental = rentals[_rentalId];
+        require(
+            rental.status == RentalStatus.Active ||
+                rental.status == RentalStatus.Ended,
+            "RA: Rental not active/ended"
+        );
+        require(
+            block.timestamp >= rental.endDate,
+            "RA: Rental period not yet ended"
+        );
+        // Ideally check if all rent was paid, add complexity if needed
 
-//         emit PropertyRented(
-//             newRentalId,
-//             _propertyId,
-//             msg.sender,
-//             property.owner,
-//             endDate,
-//             firstMonthRent,
-//             securityDeposit
-//         );
-//     }
+        rental.status = RentalStatus.DepositReleaseRequested;
+        emit DepositReleaseRequested(_rentalId, msg.sender);
+    }
 
-//     function payRent(uint256 _rentalId) external payable nonReentrant onlyTenant(_rentalId) rentalIsActive(_rentalId) {
-//         Rental storage rental = rentals[_rentalId];
-//         require(block.timestamp >= rental.rentPaidUntil - 7 days, "RA: Too early to pay next rent"); // Allow paying a bit early
-//         require(msg.value == rental.monthlyRentAmount, "RA: Incorrect rent amount");
+    // Called by Landlord to approve deposit release
+    function approveDepositRelease(
+        uint256 _rentalId
+    ) external nonReentrant onlyLandlord(_rentalId) escrowIsSet {
+        Rental storage rental = rentals[_rentalId];
+        require(
+            rental.status == RentalStatus.DepositReleaseRequested,
+            "RA: Deposit release not requested by tenant"
+        );
 
-//         // Update rent paid until date
-//         rental.rentPaidUntil += 30 days; // Simple monthly addition
+        rental.landlordApprovedDepositRelease = true;
+        rental.status = RentalStatus.Ended; // Mark as fully ended now
 
-//         // Deposit rent into Escrow
-//         escrowContract.depositFunds{value: msg.value}(
-//             _rentalId,
-//             msg.value, // Amount for rent
-//             0,         // Amount for deposit (none for regular rent payment)
-//             msg.sender
-//         );
+        emit LandlordApprovedDepositRelease(_rentalId, msg.sender);
 
-//         emit RentPaid(_rentalId, rental.rentPaidUntil, msg.value);
-//     }
+        // Trigger the actual release from Escrow
+        escrowContract.releaseDepositToTenant(
+            _rentalId,
+            payable(rental.tenant)
+        );
+        // Escrow contract emits DepositReleased event
 
-//     // Called by Landlord to initiate withdrawal of accumulated rent (matches My Properties UI)
-//     function withdrawRent(uint256 _rentalId) external nonReentrant onlyLandlord(_rentalId) {
-//          // Can be called when rental is Active or Ended (to collect final rent)
-//         require(rentals[_rentalId].status == RentalStatus.Active || rentals[_rentalId].status == RentalStatus.Ended, "RA: Rental not active or ended");
+        // Mark property as available again in PropertyListing
+        propertyListingContract.markAsAvailable(rental.propertyId);
 
-//         uint256 availableRent = escrowContract.getRentBalance(_rentalId);
-//         require(availableRent > 0, "RA: No rent available to withdraw");
+        // Clean up active rental mapping
+        delete activeRentalIdForProperty[rental.propertyId];
 
-//         emit RentWithdrawalRequested(_rentalId, msg.sender);
+        emit RentalEnded(_rentalId, rental.propertyId);
+        // Note: We don't delete the rental struct itself to preserve history.
+        // Removing from arrays (rentalsByTenant, rentalsByLandlord) is complex/costly. Filter off-chain.
+    }
 
-//         // Tell Escrow to release the funds
-//         escrowContract.releaseRentToLandlord(_rentalId, payable(msg.sender), availableRent);
-//         // Escrow contract emits RentWithdrawn event upon success
-//     }
+    // --- View Functions ---
 
+    function getRentalDetails(
+        uint256 _rentalId
+    ) external view returns (Rental memory) {
+        require(rentals[_rentalId].rentalId != 0, "RA: Rental does not exist");
+        return rentals[_rentalId];
+    }
 
-//     // Called by Tenant to request deposit release after rental period ends (matches My Rentals UI)
-//     function requestDepositRelease(uint256 _rentalId) external nonReentrant onlyTenant(_rentalId) {
-//         Rental storage rental = rentals[_rentalId];
-//         require(rental.status == RentalStatus.Active || rental.status == RentalStatus.Ended, "RA: Rental not active/ended");
-//         require(block.timestamp >= rental.endDate, "RA: Rental period not yet ended");
-//         // Ideally check if all rent was paid, add complexity if needed
+    function getTenantRentals(
+        address _tenant
+    ) external view returns (uint256[] memory) {
+        return rentalsByTenant[_tenant];
+    }
 
-//         rental.status = RentalStatus.DepositReleaseRequested;
-//         emit DepositReleaseRequested(_rentalId, msg.sender);
-//     }
+    function getLandlordRentals(
+        address _landlord
+    ) external view returns (uint256[] memory) {
+        return rentalsByLandlord[_landlord];
+    }
 
-//     // Called by Landlord to approve deposit release
-//     function approveDepositRelease(uint256 _rentalId) external nonReentrant onlyLandlord(_rentalId) {
-//         Rental storage rental = rentals[_rentalId];
-//         require(rental.status == RentalStatus.DepositReleaseRequested, "RA: Deposit release not requested by tenant");
-
-//         rental.landlordApprovedDepositRelease = true;
-//         rental.status = RentalStatus.Ended; // Mark as fully ended now
-
-//         emit LandlordApprovedDepositRelease(_rentalId, msg.sender);
-
-//         // Trigger the actual release from Escrow
-//         escrowContract.releaseDepositToTenant(_rentalId, payable(rental.tenant));
-//         // Escrow contract emits DepositReleased event
-
-//         // Mark property as available again in PropertyListing
-//         propertyListingContract.markAsAvailable(rental.propertyId);
-
-//         // Clean up active rental mapping
-//         delete activeRentalIdForProperty[rental.propertyId];
-
-//         emit RentalEnded(_rentalId, rental.propertyId);
-//         // Note: We don't delete the rental struct itself to preserve history.
-//         // Removing from arrays (rentalsByTenant, rentalsByLandlord) is complex/costly. Filter off-chain.
-//     }
-
-
-//     // --- View Functions ---
-
-//     function getRentalDetails(uint256 _rentalId) external view returns (Rental memory) {
-//         require(rentals[_rentalId].rentalId != 0, "RA: Rental does not exist");
-//         return rentals[_rentalId];
-//     }
-
-//      function getTenantRentals(address _tenant) external view returns (uint256[] memory) {
-//         return rentalsByTenant[_tenant];
-//     }
-
-//      function getLandlordRentals(address _landlord) external view returns (uint256[] memory) {
-//         return rentalsByLandlord[_landlord];
-//     }
-
-//     function getActiveRentalIdForProperty(uint256 _propertyId) external view returns (uint256) {
-//         return activeRentalIdForProperty[_propertyId];
-//     }
-// }
+    function getActiveRentalIdForProperty(
+        uint256 _propertyId
+    ) external view returns (uint256) {
+        return activeRentalIdForProperty[_propertyId];
+    }
+}

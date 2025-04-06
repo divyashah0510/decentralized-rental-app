@@ -21,3 +21,10 @@ node_modules/
 
 # Next.js build output
 frontend/.next/
+
+# Test folder
+test/
+
+ignition/
+
+frontend/lib/abi/
