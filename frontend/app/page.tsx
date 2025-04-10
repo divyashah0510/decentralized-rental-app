@@ -45,7 +45,7 @@ const testimonials = [
     role: "Property Owner",
     content:
       "RentChain has revolutionized how I manage my rental properties. The smart contract system ensures I get paid on time, every time.",
-    avatar: "/placeholder.svg?height=80&width=80",
+    avatar: "/images/Sarah.webp",
     rating: 5,
   },
   {
@@ -54,7 +54,7 @@ const testimonials = [
     role: "Tenant",
     content:
       "I love the transparency of RentChain. My security deposit is held in escrow, giving me peace of mind that I'll get it back when I move out.",
-    avatar: "/placeholder.svg?height=80&width=80",
+    avatar: "/images/Michael Chen.webp",
     rating: 5,
   },
   {
@@ -63,7 +63,7 @@ const testimonials = [
     role: "Property Manager",
     content:
       "Managing multiple properties is so much easier with RentChain. The blockchain verification eliminates paperwork and disputes.",
-    avatar: "/placeholder.svg?height=80&width=80",
+    avatar: "/images/Emily Rodriguez.webp",
     rating: 4,
   },
 ];
@@ -128,7 +128,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchIpfsMetadata = async (ipfsHash?: string) => {
-    if (!ipfsHash || ipfsHash.startsWith('undefined')) {
+    if (!ipfsHash || ipfsHash.startsWith("undefined")) {
       console.warn("Invalid or missing IPFS hash provided:", ipfsHash);
       return null;
     }
@@ -146,7 +146,9 @@ export default function Home() {
       return await response.json();
     } catch (error) {
       console.error(`Error fetching IPFS metadata (${ipfsHash}):`, error);
-      toast.error(`Failed to fetch metadata for hash: ${ipfsHash.substring(0,10)}...`);
+      toast.error(
+        `Failed to fetch metadata for hash: ${ipfsHash.substring(0, 10)}...`
+      );
       return null;
     }
   };
@@ -170,7 +172,8 @@ export default function Home() {
           provider
         );
 
-        const totalPropertiesBigInt = await propertyListingContract.getTotalProperties();
+        const totalPropertiesBigInt =
+          await propertyListingContract.getTotalProperties();
         const totalProperties = Number(totalPropertiesBigInt);
 
         const propertiesPromises: Promise<PropertyCardProps | null>[] = [];
@@ -179,31 +182,43 @@ export default function Home() {
           propertiesPromises.push(
             (async () => {
               try {
-                const propertyData = await propertyListingContract.getProperty(i);
+                const propertyData = await propertyListingContract.getProperty(
+                  i
+                );
 
                 if (!propertyData || !propertyData.isListed) {
                   return null;
                 }
 
-                const metadata = await fetchIpfsMetadata(propertyData.ipfsMetadataHash);
-                const activeRentalIdBigInt = await rentalAgreementContract.getActiveRentalIdForProperty(i);
+                const metadata = await fetchIpfsMetadata(
+                  propertyData.ipfsMetadataHash
+                );
+                const activeRentalIdBigInt =
+                  await rentalAgreementContract.getActiveRentalIdForProperty(i);
                 const isAvailable = activeRentalIdBigInt === 0n;
 
                 return {
                   id: propertyData.id.toString(),
                   title: metadata?.title || "Property Title Missing",
                   location: propertyData.location,
-                  price: parseFloat(ethers.formatEther(propertyData.pricePerMonth)),
+                  price: parseFloat(
+                    ethers.formatEther(propertyData.pricePerMonth)
+                  ),
                   image: metadata?.imageUrl || "/placeholder.svg",
                   bedrooms: Number(propertyData.bedrooms),
                   bathrooms: Number(propertyData.bathrooms),
                   area: Number(propertyData.areaSqMeters),
                   isAvailable: isAvailable,
-                  amenities: Array.isArray(metadata?.amenities) ? [...metadata.amenities] : [],
-                  ipfsMetadataHash: propertyData.ipfsMetadataHash
+                  amenities: Array.isArray(metadata?.amenities)
+                    ? [...metadata.amenities]
+                    : [],
+                  ipfsMetadataHash: propertyData.ipfsMetadataHash,
                 };
               } catch (error) {
-                console.error(`Error fetching details for property ID ${i}:`, error);
+                console.error(
+                  `Error fetching details for property ID ${i}:`,
+                  error
+                );
                 return null;
               }
             })()
@@ -212,7 +227,9 @@ export default function Home() {
 
         const results = await Promise.all(propertiesPromises);
         // Filter out null results
-        const validProperties = results.filter((p): p is PropertyCardProps => p !== null);
+        const validProperties = results.filter(
+          (p): p is PropertyCardProps => p !== null
+        );
 
         // Deep clone to ensure plain objects before setting state
         const plainProperties = JSON.parse(JSON.stringify(validProperties));
@@ -221,7 +238,10 @@ export default function Home() {
       } catch (error) {
         console.error("Error fetching total properties or contracts:", error);
         toast.error("Failed to fetch property listings", {
-          description: error instanceof Error ? error.message : "Could not connect to the blockchain or contracts."
+          description:
+            error instanceof Error
+              ? error.message
+              : "Could not connect to the blockchain or contracts.",
         });
       } finally {
         setIsLoading(false);
@@ -586,10 +606,16 @@ export default function Home() {
             viewport={{ once: true }}
             variants={fadeIn}
           >
-            <Button size="lg" className="web3-button">
-              Get Started Now
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <Link href="/list-property">
+              <Button
+                variant="outline"
+                size="lg"
+                className="web3-button bg-[#1972e6] text-white hover:bg-[#1972e6]"
+              >
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -663,7 +689,7 @@ export default function Home() {
           >
             <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
               <Image
-                src="/placeholder.svg?height=30&width=30"
+                src="/images/ethereum.png"
                 alt="Ethereum"
                 width={30}
                 height={30}
@@ -673,7 +699,7 @@ export default function Home() {
             </div>
             <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
               <Image
-                src="/placeholder.svg?height=30&width=30"
+                src="/images/ipfs.png"
                 alt="IPFS"
                 width={30}
                 height={30}
@@ -683,7 +709,7 @@ export default function Home() {
             </div>
             <div className="flex items-center bg-card rounded-lg px-4 py-2 border">
               <Image
-                src="/placeholder.svg?height=30&width=30"
+                src="/images/metamask.png"
                 alt="MetaMask"
                 width={30}
                 height={30}
