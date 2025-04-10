@@ -41,7 +41,7 @@ The backend is built using Solidity smart contracts managed within a Hardhat dev
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/divyashah0510/decentralized-rental-app.git
     cd decentralized-rental-app
     ```
 
