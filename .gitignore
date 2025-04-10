@@ -25,6 +25,8 @@ frontend/.next/
 # Test folder
 test/
 
+# Hardhat Ignition default folder for deployments against a local node
 ignition/
 
+# Frontend ABI files
 frontend/lib/abi/

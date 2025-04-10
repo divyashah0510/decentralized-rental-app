@@ -1,158 +1,9 @@
-// "use client"
-
-// import { useState } from "react"
-// import { Input } from "@/components/ui/input"
-// import { Button } from "@/components/ui/button"
-// import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// import { Search, SlidersHorizontal } from "lucide-react"
-// import PropertyCard from "@/components/property-card"
-
-// // Mock data for properties
-// const mockProperties = [
-//   {
-//     id: "1",
-//     title: "Modern Apartment in Downtown",
-//     location: "New York, NY",
-//     price: 0.5,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 2,
-//     bathrooms: 2,
-//     area: 85,
-//     isAvailable: true,
-//   },
-//   {
-//     id: "2",
-//     title: "Cozy Studio near Central Park",
-//     location: "New York, NY",
-//     price: 0.3,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 1,
-//     bathrooms: 1,
-//     area: 45,
-//     isAvailable: true,
-//   },
-//   {
-//     id: "3",
-//     title: "Luxury Penthouse with City View",
-//     location: "Los Angeles, CA",
-//     price: 1.2,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 3,
-//     bathrooms: 3,
-//     area: 150,
-//     isAvailable: false,
-//   },
-//   {
-//     id: "4",
-//     title: "Charming Cottage with Garden",
-//     location: "San Francisco, CA",
-//     price: 0.7,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 2,
-//     bathrooms: 1,
-//     area: 90,
-//     isAvailable: true,
-//   },
-//   {
-//     id: "5",
-//     title: "Spacious Family Home",
-//     location: "Chicago, IL",
-//     price: 0.8,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 4,
-//     bathrooms: 2,
-//     area: 180,
-//     isAvailable: true,
-//   },
-//   {
-//     id: "6",
-//     title: "Beachfront Condo",
-//     location: "Miami, FL",
-//     price: 0.9,
-//     image: "/images/property_1.jpg",
-//     bedrooms: 2,
-//     bathrooms: 2,
-//     area: 95,
-//     isAvailable: true,
-//   },
-// ]
-
-// export default function Home() {
-//   const [searchTerm, setSearchTerm] = useState("")
-//   const [activeTab, setActiveTab] = useState("all")
-
-//   const filteredProperties = mockProperties.filter((property) => {
-//     const matchesSearch =
-//       property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-//       property.location.toLowerCase().includes(searchTerm.toLowerCase())
-
-//     if (activeTab === "all") return matchesSearch
-//     if (activeTab === "available") return matchesSearch && property.isAvailable
-//     if (activeTab === "rented") return matchesSearch && !property.isAvailable
-
-//     return matchesSearch
-//   })
-
-//   return (
-//     <div className="container py-8 md:py-12">
-//       {/* Hero Section */}
-//       <section className="mb-12 text-center">
-//         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 gradient-text">Find Your Perfect Rental</h1>
-//         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-//           Discover and rent properties with the security and transparency of blockchain technology
-//         </p>
-
-//         <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
-//           <div className="relative flex-1">
-//             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-//             <Input
-//               placeholder="Search by location or property name"
-//               className="pl-9 border"
-//               value={searchTerm}
-//               onChange={(e) => setSearchTerm(e.target.value)}
-//             />
-//           </div>
-//           <Button variant="outline" className="sm:w-auto hover:border-accent hover:text-white">
-//             <SlidersHorizontal className="h-4 w-4 mr-2" />
-//             Filters
-//           </Button>
-//         </div>
-//       </section>
-
-//       {/* Property Listings */}
-//       <section>
-//         <div className="flex justify-between items-center mb-6">
-//           <h2 className="text-2xl font-bold text-secondary">Property Listings</h2>
-//           <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-//             <TabsList>
-//               <TabsTrigger value="all">All</TabsTrigger>
-//               <TabsTrigger value="available">Available</TabsTrigger>
-//               <TabsTrigger value="rented">Rented</TabsTrigger>
-//             </TabsList>
-//           </Tabs>
-//         </div>
-
-//         {filteredProperties.length > 0 ? (
-//           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-//             {filteredProperties.map((property) => (
-//               <PropertyCard key={property.id} {...property} />
-//             ))}
-//           </div>
-//         ) : (
-//           <div className="text-center py-12">
-//             <h3 className="text-lg font-medium">No properties found</h3>
-//             <p className="text-muted-foreground">Try adjusting your search or filters</p>
-//           </div>
-//         )}
-//       </section>
-//     </div>
-//   )
-// }
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ethers } from "ethers";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -168,6 +19,7 @@ import {
   ChevronRight,
   Star,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import PropertyCard from "@/components/property-card";
 import {
@@ -178,76 +30,12 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-
-// Mock data for properties
-const mockProperties = [
-  {
-    id: "1",
-    title: "Modern Apartment in Downtown",
-    location: "New York, NY",
-    price: 0.5,
-    image: "/images/property_1.jpg",
-    bedrooms: 2,
-    bathrooms: 2,
-    area: 85,
-    isAvailable: true,
-  },
-  {
-    id: "2",
-    title: "Cozy Studio near Central Park",
-    location: "New York, NY",
-    price: 0.3,
-    image: "/images/property_1.jpg",
-    bedrooms: 1,
-    bathrooms: 1,
-    area: 45,
-    isAvailable: true,
-  },
-  {
-    id: "3",
-    title: "Luxury Penthouse with City View",
-    location: "Los Angeles, CA",
-    price: 1.2,
-    image: "/images/property_1.jpg",
-    bedrooms: 3,
-    bathrooms: 3,
-    area: 150,
-    isAvailable: false,
-  },
-  {
-    id: "4",
-    title: "Charming Cottage with Garden",
-    location: "San Francisco, CA",
-    price: 0.7,
-    image: "/images/property_1.jpg",
-    bedrooms: 2,
-    bathrooms: 1,
-    area: 90,
-    isAvailable: true,
-  },
-  {
-    id: "5",
-    title: "Spacious Family Home",
-    location: "Chicago, IL",
-    price: 0.8,
-    image: "/images/property_1.jpg",
-    bedrooms: 4,
-    bathrooms: 2,
-    area: 180,
-    isAvailable: true,
-  },
-  {
-    id: "6",
-    title: "Beachfront Condo",
-    location: "Miami, FL",
-    price: 0.9,
-    image: "/images/property_1.jpg",
-    bedrooms: 2,
-    bathrooms: 2,
-    area: 95,
-    isAvailable: true,
-  },
-];
+import { useWeb3 } from "@/components/web3-provider";
+import { contractAddresses } from "@/lib/config";
+import PropertyListingABI from "@/lib/abi/PropertyListing.json";
+import RentalAgreementABI from "@/lib/abi/RentalAgreement.json";
+import { toast } from "sonner";
+import type React from "react";
 
 // Mock testimonials data
 const testimonials = [
@@ -329,45 +117,131 @@ const staggerContainer = {
   },
 };
 
+// Define the type based on the component's props
+type PropertyCardProps = React.ComponentProps<typeof PropertyCard>;
+
 export default function Home() {
+  const { provider } = useWeb3();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [properties, setProperties] = useState<PropertyCardProps[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // const filteredProperties = mockProperties.filter((property) => {
-  //   const matchesSearch =
-  //     property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     property.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const fetchIpfsMetadata = async (ipfsHash?: string) => {
+    if (!ipfsHash || ipfsHash.startsWith('undefined')) {
+      console.warn("Invalid or missing IPFS hash provided:", ipfsHash);
+      return null;
+    }
+    const gatewayUrl = process.env.NEXT_PUBLIC_IPFS_GATEWAY;
+    if (!gatewayUrl) {
+      console.error("IPFS Gateway URL is not configured.");
+      return null;
+    }
+    const url = `${gatewayUrl}/ipfs/${ipfsHash}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch IPFS data: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching IPFS metadata (${ipfsHash}):`, error);
+      toast.error(`Failed to fetch metadata for hash: ${ipfsHash.substring(0,10)}...`);
+      return null;
+    }
+  };
 
-  //   if (activeTab === "all") return matchesSearch
-  //   if (activeTab === "available") return matchesSearch && property.isAvailable
-  //   if (activeTab === "rented") return matchesSearch && !property.isAvailable
+  useEffect(() => {
+    const fetchAllProperties = async () => {
+      if (!provider) {
+        console.log("Provider not available yet.");
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const propertyListingContract = new ethers.Contract(
+          contractAddresses.propertyListing,
+          PropertyListingABI.abi,
+          provider
+        );
+        const rentalAgreementContract = new ethers.Contract(
+          contractAddresses.rentalAgreement,
+          RentalAgreementABI.abi,
+          provider
+        );
 
-  //   return matchesSearch
-  // })
-  const filteredProperties = mockProperties.filter((property) => {
-    // 1. Check if the property matches the search term
+        const totalPropertiesBigInt = await propertyListingContract.getTotalProperties();
+        const totalProperties = Number(totalPropertiesBigInt);
+
+        const propertiesPromises: Promise<PropertyCardProps | null>[] = [];
+
+        for (let i = 1; i <= totalProperties; i++) {
+          propertiesPromises.push(
+            (async () => {
+              try {
+                const propertyData = await propertyListingContract.getProperty(i);
+
+                if (!propertyData || !propertyData.isListed) {
+                  return null;
+                }
+
+                const metadata = await fetchIpfsMetadata(propertyData.ipfsMetadataHash);
+                const activeRentalIdBigInt = await rentalAgreementContract.getActiveRentalIdForProperty(i);
+                const isAvailable = activeRentalIdBigInt === 0n;
+
+                return {
+                  id: propertyData.id.toString(),
+                  title: metadata?.title || "Property Title Missing",
+                  location: propertyData.location,
+                  price: parseFloat(ethers.formatEther(propertyData.pricePerMonth)),
+                  image: metadata?.imageUrl || "/placeholder.svg",
+                  bedrooms: Number(propertyData.bedrooms),
+                  bathrooms: Number(propertyData.bathrooms),
+                  area: Number(propertyData.areaSqMeters),
+                  isAvailable: isAvailable,
+                  amenities: Array.isArray(metadata?.amenities) ? [...metadata.amenities] : [],
+                  ipfsMetadataHash: propertyData.ipfsMetadataHash
+                };
+              } catch (error) {
+                console.error(`Error fetching details for property ID ${i}:`, error);
+                return null;
+              }
+            })()
+          );
+        }
+
+        const results = await Promise.all(propertiesPromises);
+        // Filter out null results
+        const validProperties = results.filter((p): p is PropertyCardProps => p !== null);
+
+        // Deep clone to ensure plain objects before setting state
+        const plainProperties = JSON.parse(JSON.stringify(validProperties));
+
+        setProperties(plainProperties);
+      } catch (error) {
+        console.error("Error fetching total properties or contracts:", error);
+        toast.error("Failed to fetch property listings", {
+          description: error instanceof Error ? error.message : "Could not connect to the blockchain or contracts."
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllProperties();
+  }, [provider]);
+
+  const filteredProperties = properties.filter((property) => {
     const matchesSearch =
       property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       property.location.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // 2. Apply tab-specific filtering *only if* it matches the search
-    if (activeTab === "all") {
-      // If 'All' tab is active, just return whether it matches the search
-      return matchesSearch;
-    }
-    if (activeTab === "available") {
-      // If 'Available' tab, return true only if it matches search AND is available
-      return matchesSearch && property.isAvailable;
-    }
-    if (activeTab === "rented") {
-      // If 'Rented' tab, return true only if it matches search AND is NOT available
-      return matchesSearch && !property.isAvailable;
-    }
+    if (activeTab === "all") return matchesSearch;
+    if (activeTab === "available") return matchesSearch && property.isAvailable;
+    if (activeTab === "rented") return matchesSearch && !property.isAvailable;
 
-    // Default case (shouldn't be reached with the current tabs)
     return matchesSearch;
   });
-  console.log("Filtered properties count:", filteredProperties.length); // <-- And this line
 
   return (
     <div className="flex flex-col">
@@ -483,7 +357,11 @@ export default function Home() {
             </Tabs>
           </motion.div>
 
-          {filteredProperties.length > 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary dark:text-blue-500" />
+            </div>
+          ) : filteredProperties.length > 0 ? (
             <motion.div
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               key={activeTab}

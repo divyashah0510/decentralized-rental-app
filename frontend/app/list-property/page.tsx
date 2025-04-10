@@ -2,9 +2,10 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, type ReactNode, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, X, Plus, Loader2 } from "lucide-react";
+import { ethers } from "ethers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { useWeb3 } from "@/components/web3-provider";
+import PropertyListingABI from "@/lib/abi/PropertyListing.json";
+import { contractAddresses } from "@/lib/config";
 
 const amenitiesOptions = [
   "Swimming Pool",
@@ -45,32 +49,43 @@ const amenitiesOptions = [
 ];
 export default function ListProperty() {
   const router = useRouter();
-  const { isConnected, connectWallet } = useWeb3();
+  const { signer, isConnected, connectWallet, account } = useWeb3();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     location: "",
     price: "",
+    securityDeposit: "",
     bedrooms: "",
     bathrooms: "",
     area: "",
     availableFrom: "",
     minRentalPeriod: "3",
-    amenities: [],
+    amenities: [] as string[],
   });
-  const [amenities, setAmenities] = useState<string[]>([]);
+
   const handleAmenitiesChange = (amenity: string) => {
-    if (amenities.includes(amenity)) {
-      setAmenities(amenities.filter((a) => a !== amenity));
-    } else {
-      setAmenities([...amenities, amenity]);
-    }
+    setFormData((prev) => {
+      const currentAmenities = prev.amenities || [];
+      if (currentAmenities.includes(amenity)) {
+        return {
+          ...prev,
+          amenities: currentAmenities.filter((a) => a !== amenity),
+        };
+      } else {
+        return {
+          ...prev,
+          amenities: [...currentAmenities, amenity],
+        };
+      }
+    });
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -80,35 +95,116 @@ export default function ListProperty() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newImages = Array.from(e.target.files).map((file) =>
-        URL.createObjectURL(file)
-      );
-      setUploadedImages((prev) => [...prev, ...newImages]);
+      const file = e.target.files[0];
+      setSelectedImageFile(file);
+      setImagePreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const removeImage = (index: number) => {
-    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = () => {
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+    const input = document.getElementById("images") as HTMLInputElement;
+    if (input) input.value = "";
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isConnected) {
+    if (!isConnected || !signer || !account) {
+      toast.error("Please connect your wallet first.");
       await connectWallet();
       return;
     }
 
-    setIsSubmitting(true);
+    if (!selectedImageFile) {
+        toast.error("Please upload a property image.");
+        return;
+    }
 
-    // Simulate blockchain transaction
-    setTimeout(() => {
+    setIsSubmitting(true);
+    const toastId = toast.loading("Listing property...");
+
+    try {
+      // 1. Prepare Base Metadata (API route will add imageUrl)
+      const baseMetadata = {
+        title: formData.title,
+        description: formData.description,
+        bedrooms: parseInt(formData.bedrooms, 10),
+        bathrooms: parseInt(formData.bathrooms, 10),
+        area: parseInt(formData.area, 10),
+        amenities: formData.amenities,
+        // No imageUrl here
+      };
+
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", selectedImageFile);
+      uploadFormData.append("metadata", JSON.stringify(baseMetadata));
+
+      toast.info("Uploading data to IPFS...", { id: toastId });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      const ipfsData = await response.json();
+
+      if (!response.ok || !ipfsData.success || !ipfsData.metadataIpfsHash) {
+        throw new Error(ipfsData.error || "Failed to upload image and metadata to IPFS");
+      }
+      // We need the METADATA hash to store on-chain
+      const metadataIpfsHash = ipfsData.metadataIpfsHash;
+      toast.info(`IPFS upload successful. Metadata Hash: ${metadataIpfsHash.substring(0, 10)}...`, { id: toastId });
+
+      // 2. Prepare Contract Interaction (unchanged)
+      const propertyListingContract = new ethers.Contract(
+        contractAddresses.propertyListing,
+        PropertyListingABI.abi,
+        signer
+      );
+
+      const priceInWei = ethers.parseEther(formData.price);
+      const depositInWei = ethers.parseEther(formData.securityDeposit);
+      const availableFromDate = new Date(formData.availableFrom);
+      const availableFromTimestamp = Math.floor(availableFromDate.getTime() / 1000);
+      const minRentalPeriodMonths = parseInt(formData.minRentalPeriod, 10);
+
+      // 3. Call the Smart Contract (unchanged)
+      toast.info("Sending transaction to the blockchain...", { id: toastId });
+      const tx = await propertyListingContract.listProperty(
+        formData.location,
+        priceInWei,
+        depositInWei,
+        parseInt(formData.bedrooms, 10),
+        parseInt(formData.bathrooms, 10),
+        parseInt(formData.area, 10),
+        availableFromTimestamp,
+        minRentalPeriodMonths,
+        metadataIpfsHash // Send the hash of the *metadata* JSON (which now includes imageUrl)
+      );
+
+      toast.info("Waiting for transaction confirmation...", { id: toastId });
+      await tx.wait();
+
+      toast.success("Property listed successfully!", {
+        id: toastId,
+        description: `Transaction Hash: ${tx.hash.substring(0, 10)}...`,
+      });
+
+      // Redirect after a short delay
+      setTimeout(() => router.push("/my-properties"), 2000);
+
+    } catch (error: any) {
+      console.error("Error listing property:", error);
+      toast.error("Failed to list property", {
+        id: toastId,
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
       setIsSubmitting(false);
-      alert("Property listed successfully! Transaction hash: 0x123...456");
-      router.push("/");
-    }, 2000);
+    }
   };
 
   return (
@@ -301,50 +397,42 @@ export default function ListProperty() {
                   Property Images
                 </h3>
 
-                <div className="grid gap-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {uploadedImages.map((image, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-square rounded-md overflow-hidden border"
-                      >
-                        <img
-                          src={image || "/placeholder.svg"}
-                          alt={`Property image ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
-                          aria-label="Remove image"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-
-                    {uploadedImages.length < 8 && (
-                      <label className="flex flex-col items-center justify-center aspect-square rounded-md border border-dashed cursor-pointer hover:bg-muted/50">
-                        <div className="flex flex-col items-center justify-center p-4">
-                          <Plus className="h-8 w-8 mb-2 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground text-center">
-                            Upload Image
-                          </span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                      </label>
-                    )}
+                <div className="grid gap-2">
+                  <Label htmlFor="images">Upload Images</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-32 h-32 border-2 border-dashed rounded-md flex items-center justify-center text-muted-foreground hover:border-primary transition-colors">
+                      {imagePreviewUrl ? (
+                        <>
+                          <img
+                            src={imagePreviewUrl}
+                            alt="Preview"
+                            className="object-cover w-full h-full rounded-md"
+                          />
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="absolute top-1 right-1 bg-destructive/80 text-destructive-foreground rounded-full p-1 hover:bg-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8" />
+                          <Input
+                            id="images"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            required
+                          />
+                        </>
+                      )}
+                    </div>
                   </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Upload up to 8 images of your property. The first image will
-                    be used as the cover image.
+                  <p className="text-sm text-muted-foreground">
+                    Upload at least one image of your property.
                   </p>
                 </div>
               </div>
@@ -355,9 +443,7 @@ export default function ListProperty() {
                   Amenities
                 </h3>
                 <div className="gap-2 w-[50%] flex flex-wrap">
-                  {" "}
-                  {/* Changed to flex container */}
-                  {amenities.map((selectedAmenity) => (
+                  {formData.amenities.map((selectedAmenity) => (
                     <div
                       key={selectedAmenity}
                       className="flex items-center bg-gray-100 px-2 py-1 rounded-md border border-gray-200"
@@ -365,7 +451,10 @@ export default function ListProperty() {
                       <span>{selectedAmenity}</span>
                       <button
                         className="ml-2 text-red-500 hover:text-red-700"
-                        onClick={() => handleAmenitiesChange(selectedAmenity)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAmenitiesChange(selectedAmenity);
+                        }}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -392,31 +481,38 @@ export default function ListProperty() {
                   </Select>
                 </div>
               </div>
+
+              {/* Add Security Deposit Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="securityDeposit">Security Deposit (ETH)</Label>
+                <Input
+                  id="securityDeposit"
+                  name="securityDeposit"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 1.0"
+                  value={formData.securityDeposit}
+                  onChange={handleChange}
+                  required
+                  className="border"
+                />
+              </div>
             </CardContent>
 
-            <CardFooter className="flex justify-between">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => router.push("/")}
-              >
-                Cancel
-              </Button>
+            <CardFooter className="flex justify-end">
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isConnected}
                 className="web3-button"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Listing Property...
+                    Submitting...
                   </>
                 ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    List Property
-                  </>
+                  "List Property"
                 )}
               </Button>
             </CardFooter>

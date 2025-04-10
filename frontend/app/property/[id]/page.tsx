@@ -1,80 +1,228 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { MapPin, Bed, Bath, Square, Calendar, User, ArrowLeft, Share2, Heart, Loader2 } from "lucide-react"
+import { ethers } from "ethers"
+import { MapPin, Bed, Bath, Square, Calendar, User, ArrowLeft, Share2, Heart, Loader2, Info } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useWeb3 } from "@/components/web3-provider"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
+import { contractAddresses } from "@/lib/config"
+import PropertyListingABI from "@/lib/abi/PropertyListing.json"
+import RentalAgreementABI from "@/lib/abi/RentalAgreement.json"
+import EscrowABI from "@/lib/abi/Escrow.json"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Mock property data
-const mockProperties = {
-  "1": {
-    id: "1",
-    title: "Modern Apartment in Downtown",
-    description:
-      "This beautiful modern apartment is located in the heart of downtown. It features high ceilings, large windows with plenty of natural light, and premium finishes throughout. The open concept living area is perfect for entertaining, and the kitchen is equipped with high-end stainless steel appliances. The building offers amenities including a fitness center, rooftop terrace, and 24-hour concierge service.",
-    location: "New York, NY",
-    price: 0.5,
-    images: [
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600",
-    ],
-    bedrooms: 2,
-    bathrooms: 2,
-    area: 85,
-    isAvailable: true,
-    owner: "0x1234...5678",
-    amenities: ["Air Conditioning", "Heating", "Washer/Dryer", "Dishwasher", "Gym", "Parking", "Elevator", "Balcony"],
-    availableFrom: "2023-12-01",
-    minRentalPeriod: 3, // months
-  },
-  "2": {
-    id: "2",
-    title: "Cozy Studio near Central Park",
-    description:
-      "Charming studio apartment just steps away from Central Park. This cozy space has been recently renovated with modern fixtures and appliances. The efficient layout maximizes the living area, and the large windows provide excellent natural light. The building includes laundry facilities and a shared courtyard. Perfect for a single professional or couple looking to enjoy all that the city has to offer.",
-    location: "New York, NY",
-    price: 0.3,
-    images: [
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600",
-      "/placeholder.svg?height=400&width=600",
-    ],
-    bedrooms: 1,
-    bathrooms: 1,
-    area: 45,
-    isAvailable: true,
-    owner: "0x9876...4321",
-    amenities: ["Air Conditioning", "Heating", "Laundry in Building", "Dishwasher", "Hardwood Floors"],
-    availableFrom: "2023-11-15",
-    minRentalPeriod: 6, // months
-  },
-  // Add more properties as needed
+// Define Property type for detailed view
+type DetailedProperty = {
+  id: string
+  title: string
+  description: string
+  location: string
+  pricePerMonth: string // ETH formatted
+  securityDeposit: string // ETH formatted
+  images: string[] // Array of IPFS URLs or placeholders
+  bedrooms: number
+  bathrooms: number
+  area: number
+  isAvailable: boolean
+  owner: string
+  amenities: string[]
+  availableFromTimestamp: number
+  minRentalPeriodMonths: number
+  ipfsMetadataHash: string
+  // Store Wei values as strings to avoid BigInt serialization issues
+  pricePerMonthWei: string
+  securityDepositWei: string
 }
 
 export default function PropertyDetails() {
-  const { id } = useParams()
-  const { isConnected, connectWallet, isLoading } = useWeb3()
-  const { toast } = useToast()
+  const { id } = useParams<{ id: string }>()
+  const { signer, provider, isConnected, connectWallet, account } = useWeb3()
+  const [property, setProperty] = useState<DetailedProperty | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [activeImage, setActiveImage] = useState(0)
   const [isRenting, setIsRenting] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
-  // Get property data based on ID
-  const property = mockProperties[id as keyof typeof mockProperties]
+
+  const fetchIpfsMetadata = async (ipfsHash?: string) => {
+    if (!ipfsHash || ipfsHash.startsWith('undefined')) {
+      console.warn("Invalid or missing IPFS hash provided:", ipfsHash)
+      return null
+    }
+    const gatewayUrl = process.env.NEXT_PUBLIC_IPFS_GATEWAY
+    if (!gatewayUrl) {
+      console.error("IPFS Gateway URL is not configured.")
+      return null
+    }
+    const url = `${gatewayUrl}/ipfs/${ipfsHash}`
+    try {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch IPFS data: ${response.statusText}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error(`Error fetching IPFS metadata (${ipfsHash}):`, error)
+      toast.error(`Failed to fetch metadata for hash: ${ipfsHash.substring(0, 10)}...`)
+      return null
+    }
+  }
+
+  // Helper function to format timestamp
+  const formatDate = (timestamp: number) => {
+    if (!timestamp) return "N/A"
+    return new Date(timestamp * 1000).toLocaleDateString()
+  }
+
+  useEffect(() => {
+    const fetchPropertyDetails = async () => {
+      if (!provider || !id) return
+      setIsLoading(true)
+      try {
+        const propertyListingContract = new ethers.Contract(
+          contractAddresses.propertyListing,
+          PropertyListingABI.abi,
+          provider
+        )
+        const rentalAgreementContract = new ethers.Contract(
+          contractAddresses.rentalAgreement,
+          RentalAgreementABI.abi,
+          provider
+        )
+
+        const propertyData = await propertyListingContract.getProperty(id)
+
+        if (!propertyData || propertyData.id === 0n) {
+          throw new Error("Property not found")
+        }
+
+        const metadata = await fetchIpfsMetadata(propertyData.ipfsMetadataHash)
+        const activeRentalIdBigInt = await rentalAgreementContract.getActiveRentalIdForProperty(id)
+        const isAvailable = activeRentalIdBigInt === 0n
+
+        // Construct detailed property object
+        const detailedProperty: DetailedProperty = {
+          id: propertyData.id.toString(),
+          title: metadata?.title || "Property Title Missing",
+          description: metadata?.description || "No description provided.",
+          location: propertyData.location,
+          pricePerMonth: ethers.formatEther(propertyData.pricePerMonth),
+          securityDeposit: ethers.formatEther(propertyData.securityDeposit),
+          images: metadata?.imageUrls || [metadata?.imageUrl || "/placeholder.svg"],
+          bedrooms: Number(propertyData.bedrooms),
+          bathrooms: Number(propertyData.bathrooms),
+          area: Number(propertyData.areaSqMeters),
+          isAvailable: isAvailable,
+          owner: propertyData.owner,
+          amenities: Array.isArray(metadata?.amenities) ? [...metadata.amenities] : [],
+          availableFromTimestamp: Number(propertyData.availableFromTimestamp),
+          minRentalPeriodMonths: Number(propertyData.minRentalPeriodMonths),
+          ipfsMetadataHash: propertyData.ipfsMetadataHash,
+          // Convert BigInt to string for state storage
+          pricePerMonthWei: propertyData.pricePerMonth.toString(),
+          securityDepositWei: propertyData.securityDeposit.toString(),
+        }
+
+        // Deep clone before setting state (still useful for other nested objects)
+        const plainProperty = JSON.parse(JSON.stringify(detailedProperty));
+        setProperty(plainProperty);
+
+      } catch (error) {
+        console.error("Error fetching property details:", error)
+        toast.error("Failed to fetch property details", {
+          description: error instanceof Error && error.message === "Property not found" ? "This property does not exist." : "An error occurred while fetching data."
+        })
+        setProperty(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPropertyDetails()
+  }, [id, provider])
+
+  const handleRentNow = async () => {
+    if (!isConnected || !signer || !account) {
+      toast.error("Please connect your wallet first.")
+      await connectWallet()
+      return
+    }
+    if (!property || !property.isAvailable) {
+      toast.error("This property is not available for rent.")
+      return
+    }
+
+    // Prevent renting own property
+    if (property.owner.toLowerCase() === account.toLowerCase()) {
+      toast.error("You cannot rent your own property.")
+      return
+    }
+
+    setIsRenting(true)
+    const toastId = toast.loading("Preparing rental transaction...")
+
+    try {
+      const rentalAgreementContract = new ethers.Contract(
+        contractAddresses.rentalAgreement,
+        RentalAgreementABI.abi,
+        signer
+      )
+
+      // Convert stored string Wei values back to BigInt for calculation
+      const priceWei = BigInt(property.pricePerMonthWei);
+      const depositWei = BigInt(property.securityDepositWei);
+      const totalAmountWei = priceWei + depositWei;
+
+      toast.info("Please confirm the transaction in your wallet...", { id: toastId })
+
+      // Call the rentProperty function with only propertyId and value
+      const tx = await rentalAgreementContract.rentProperty(
+        property.id,
+        {
+          value: totalAmountWei,
+        }
+      )
+
+      toast.info("Waiting for transaction confirmation...", { id: toastId })
+      await tx.wait()
+
+      toast.success("Property Rented Successfully!", {
+        id: toastId,
+        description: `Transaction Hash: ${tx.hash.substring(0, 10)}...`,
+      })
+
+      // Update property state to show as rented (or re-fetch)
+      setProperty(prev => prev ? { ...prev, isAvailable: false } : null)
+    } catch (error: any) {
+      console.error("Error renting property:", error)
+      toast.error("Failed to rent property", {
+        id: toastId,
+        description: error?.reason || error?.message || "An unexpected error occurred.",
+      })
+    } finally {
+      setIsRenting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container py-12 flex justify-center items-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   if (!property) {
     return (
       <div className="container py-12 text-center">
         <h1 className="text-2xl font-bold mb-4">Property Not Found</h1>
-        <p className="mb-8">The property you're looking for doesn't exist or has been removed.</p>
+        <p className="text-muted-foreground mb-8">The property you were looking for could not be found or loaded.</p>
         <Link href="/">
           <Button className="web3-button">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -83,25 +231,6 @@ export default function PropertyDetails() {
         </Link>
       </div>
     )
-  }
-
-  const handleRentNow = async () => {
-    if (!isConnected) {
-      await connectWallet()
-      return
-    }
-
-    setIsRenting(true)
-
-    // Simulate blockchain transaction
-    setTimeout(() => {
-      setIsRenting(false)
-      toast({
-        title: "Property Rented Successfully!",
-        description: `Transaction hash: 0x123...456`,
-        variant: "success",
-      })
-    }, 2000)
   }
 
   return (
@@ -199,11 +328,22 @@ export default function PropertyDetails() {
             </div>
             <div className="flex items-center">
               <Calendar className="h-4 w-4 mr-1 text-primary" />
-              <span>Available from {property.availableFrom}</span>
+              <span>Available from {formatDate(property.availableFromTimestamp)}</span>
             </div>
             <div className="flex items-center">
               <User className="h-4 w-4 mr-1 text-primary" />
-              <span>Owner: {property.owner}</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="truncate cursor-help">
+                      Owner: {property.owner.substring(0, 6)}...{property.owner.substring(property.owner.length - 4)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{property.owner}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
@@ -211,32 +351,35 @@ export default function PropertyDetails() {
             <CardContent className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <div className="text-2xl font-bold text-primary">{property.price} ETH</div>
+                  <div className="text-2xl font-bold text-primary">{property.pricePerMonth} ETH</div>
                   <div className="text-sm text-muted-foreground">per month</div>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Min. rental period: {property.minRentalPeriod} months
+                  Min. rental period: {property.minRentalPeriodMonths} months
                 </div>
               </div>
 
               <Button
                 className="w-full web3-button"
                 size="lg"
-                disabled={!property.isAvailable || isRenting}
+                disabled={!property.isAvailable || isRenting || !isConnected || property.owner.toLowerCase() === account?.toLowerCase()}
                 onClick={handleRentNow}
+                title={property.owner.toLowerCase() === account?.toLowerCase() ? "Cannot rent your own property" : ""}
               >
                 {isRenting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
                   </>
+                ) : property.isAvailable ? (
+                  "Rent Now"
                 ) : (
-                  "Rent Now with MetaMask"
+                  "Currently Rented"
                 )}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center mt-2">
-                Security deposit: {property.price * 2} ETH (refundable)
+                Security deposit: {property.securityDeposit} ETH (refundable, paid upfront)
               </p>
             </CardContent>
           </Card>
@@ -259,23 +402,21 @@ export default function PropertyDetails() {
                 Terms
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="description" className="mt-4">
-              <p className="text-muted-foreground">{property.description}</p>
+            <TabsContent value="description" className="mt-4 text-muted-foreground">
+              {property.description}
             </TabsContent>
             <TabsContent value="amenities" className="mt-4">
-              <ul className="grid grid-cols-2 gap-2">
+              <ul className="list-disc list-inside grid grid-cols-2 gap-2 text-muted-foreground">
                 {property.amenities.map((amenity, index) => (
-                  <li key={index} className="flex items-center">
-                    <div className="h-2 w-2 rounded-full bg-primary mr-2" />
-                    {amenity}
-                  </li>
+                  <li key={index}>{amenity}</li>
                 ))}
+                {property.amenities.length === 0 && <li>No specific amenities listed.</li>}
               </ul>
             </TabsContent>
             <TabsContent value="terms" className="mt-4">
               <ul className="space-y-2 text-muted-foreground">
-                <li>• Minimum rental period: {property.minRentalPeriod} months</li>
-                <li>• Security deposit: {property.price * 2} ETH (refundable)</li>
+                <li>• Minimum rental period: {property.minRentalPeriodMonths} months</li>
+                <li>• Security deposit: {property.securityDeposit} ETH (refundable, paid upfront)</li>
                 <li>• Rent is paid monthly in advance</li>
                 <li>• No pets allowed</li>
                 <li>• No smoking inside the property</li>
