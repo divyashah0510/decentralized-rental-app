@@ -1,0 +1,9 @@
+{
+  "RentalPlatformModule#PropertyListing": "0x33910f100397228B97087723F639338f5174054b",
+  "RentalPlatformModule#UserRegistry": "0x09C943A8a5b9f4b7F2B02F26eA830A4d61031026",
+  "RentalPlatformModule#RentalAgreement": "0xca3270E68626eF236B84E3f9196Cd3Bc1227A274",
+  "RentalPlatformModule#Escrow": "0x3D3DaeCFFfA1Fca8E47C7869e893B7c5065B1dD6",
+  "RentalPlatformModule#MaintenanceRequests": "0x31C9D06EE630315Aa9e3fA81836476BcE81941AB",
+  "RentalPlatformModule#PropertyReviews": "0x2B03d5b5F03Dad1a56C431b2d194De38D26C6580",
+  "RentalPlatformModule#DisputeResolution": "0x5BfBAaDE9cDd30a1E5d7D37E110E034Ee3dDabb9"
+}
