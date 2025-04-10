@@ -17,16 +17,16 @@ node_modules
 ignition/deployments/chain-31337
 
 # Node modules
-node_modules/
+# node_modules/
 
 # Next.js build output
 frontend/.next/
 
 # Test folder
-test/
+# test/
 
 # Hardhat Ignition default folder for deployments against a local node
-ignition/
+# ignition/
 
 # Frontend ABI files
-frontend/lib/abi/
+# frontend/lib/abi/
